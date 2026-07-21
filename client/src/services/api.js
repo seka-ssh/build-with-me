@@ -1,0 +1,12 @@
+import axios from 'axios';
+const api=axios.create({baseURL:import.meta.env.VITE_API_BASE_URL||'/api',timeout:15000,headers:{'Content-Type':'application/json'}});
+api.interceptors.request.use(config=>{const token=localStorage.getItem('sekaPortfolioToken');if(token)config.headers.Authorization=`Bearer ${token}`;return config;});
+api.interceptors.response.use(r=>r,e=>Promise.reject(new Error(e.response?.data?.message||e.message||'Network request failed')));
+export const fetchProjects=async()=>{const r=await api.get('/projects');return r.data.data;};
+export const fetchProjectBySlug=async slug=>{const r=await api.get(`/projects/${slug}`);return r.data.data;};
+export const fetchProjectsByStatus=async status=>{const r=await api.get(`/projects/status/${status}`);return r.data.data;};
+export const fetchFeaturedProjects=async()=>{const r=await api.get('/projects/featured');return r.data.data;};
+export const sendContactMessage=async payload=>{const r=await api.post('/contact',payload);return r.data;};
+export const trackPageView=async payload=>{const r=await api.post('/analytics/view',payload);return r.data;};
+export const fetchViewStats=async()=>{const r=await api.get('/analytics/views');return r.data.data;};
+export default api;

@@ -1,0 +1,33 @@
+body{
+    display: flex;
+    background-color: black;
+    justify-content: center;
+    color: antiquewhite;
+    align-items: center;
+}
+
+ul{
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    list-style-type: none;
+    
+}
+
+ul li{
+    background-color: rgb(11, 9, 73);
+    width: 100px;
+    height: 20px;
+    border: 2px solid;
+    padding: 6px;
+    text-align: center;
+    box-shadow: 5px 5px 5px gray;
+    transform: rotate(-20deg) skew(20deg) translate(0,0);
+    transition: 1.2s;
+    
+
+}
+li:hover{
+    transform: rotate(-30deg) skew(25deg) translate(20px,-15px);
+    box-shadow: -50px 50px 50px green;
+}
