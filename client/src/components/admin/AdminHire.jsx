@@ -1,0 +1,220 @@
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import { Mail, MailOpen, Trash2, Send, Paperclip } from "lucide-react";
+import {
+  fetchHireRequests,
+  markHireRead,
+  deleteHireRequest,
+  setHireStatus,
+  replyToHire,
+} from "../../services/api";
+
+const STATUSES = ["New", "Contacted", "Completed", "Archived"];
+
+const AdminHire = () => {
+  const [items, setItems] = useState([]);
+  const [open, setOpen] = useState(null);
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const load = () =>
+    fetchHireRequests()
+      .then(setItems)
+      .catch((e) => toast.error(e.message));
+  useEffect(() => {
+    load();
+  }, []);
+
+  const mark = async (id) => {
+    try {
+      await markHireRead(id);
+      load();
+      if (open?._id === id) setOpen({ ...open, read: true });
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
+  const status = async (id, s) => {
+    try {
+      await setHireStatus(id, s);
+      toast.success(`Status: ${s}`);
+      load();
+      if (open?._id === id) setOpen({ ...open, status: s });
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
+  const remove = async (id) => {
+    if (!window.confirm("Delete this request?")) return;
+    try {
+      await deleteHireRequest(id);
+      if (open?._id === id) setOpen(null);
+      toast.success("Deleted.");
+      load();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
+  const send = async () => {
+    if (!reply.trim()) {
+      toast.error("Write a reply first.");
+      return;
+    }
+    setSending(true);
+    try {
+      const r = await replyToHire(open._id, reply);
+      r.delivered ? toast.success(r.message) : toast.error(r.message);
+      setReply("");
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const fmt = (d) => (d ? new Date(d).toLocaleString() : "");
+
+  return (
+    <div>
+      <h1 className="font-display text-2xl font-bold">Hire Requests</h1>
+      <p className="mt-1 text-sm text-portfolio-subtext">
+        Project requests from the Hire Me form — reply by email directly here.
+      </p>
+      <div className="mt-6 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="space-y-3">
+          {items.length === 0 && (
+            <p className="text-sm text-portfolio-subtext">No hire requests yet.</p>
+          )}
+          {items.map((h) => (
+            <button
+              key={h._id}
+              type="button"
+              onClick={() => setOpen(h)}
+              className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left transition ${
+                open?._id === h._id
+                  ? "border-portfolio-gold/60 bg-portfolio-surface"
+                  : "border-portfolio-border bg-portfolio-surface/50 hover:border-portfolio-gold/40"
+              }`}
+            >
+              <div className="mt-1">
+                {h.read ? (
+                  <MailOpen className="text-portfolio-subtext" size={18} />
+                ) : (
+                  <Mail className="text-portfolio-gold" size={18} />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">{h.name}</span>
+                  {!h.read && (
+                    <span className="rounded-full bg-portfolio-gold px-2 py-0.5 text-[10px] font-bold text-portfolio-bg">
+                      NEW
+                    </span>
+                  )}
+                  <span className="rounded-full border border-portfolio-border px-2 py-0.5 text-[10px] font-semibold text-portfolio-subtext">
+                    {h.status}
+                  </span>
+                </div>
+                <p className="truncate text-sm text-portfolio-subtext">
+                  {h.projectType || h.project || h.description}
+                </p>
+                <p className="text-xs text-portfolio-muted">{fmt(h.createdAt)}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+        <div className="rounded-3xl border border-portfolio-border bg-portfolio-surface/60 p-5">
+          {!open ? (
+            <p className="text-sm text-portfolio-subtext">
+              Select a request to view details.
+            </p>
+          ) : (
+            <div>
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="font-display text-xl font-bold">{open.name}</h3>
+                <select
+                  value={open.status || "New"}
+                  onChange={(e) => status(open._id, e.target.value)}
+                  className="rounded-full border border-portfolio-border bg-portfolio-bg px-3 py-1.5 text-xs font-semibold"
+                >
+                  {STATUSES.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="mt-1 text-sm text-portfolio-gold">{open.email}</p>
+              <p className="mt-1 text-xs text-portfolio-muted">{fmt(open.createdAt)}</p>
+              <div className="mt-3 grid gap-2 text-sm">
+                {open.projectType && (
+                  <p><span className="font-semibold">Type:</span> {open.projectType}</p>
+                )}
+                {open.project && (
+                  <p><span className="font-semibold">Project:</span> {open.project}</p>
+                )}
+                {open.budget && (
+                  <p><span className="font-semibold">Budget:</span> {open.budget}</p>
+                )}
+              </div>
+              <div className="mt-4 rounded-2xl bg-portfolio-bg p-4 text-sm leading-6">
+                {open.description}
+              </div>
+              {open.attachmentUrl && (
+                <a
+                  href={open.attachmentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-portfolio-gold/50 px-4 py-2 text-xs font-semibold text-portfolio-gold"
+                >
+                  <Paperclip size={14} /> Open attachment
+                </a>
+              )}
+              <div className="mt-4 rounded-2xl border border-portfolio-border bg-portfolio-bg p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-portfolio-muted">
+                  Reply by email
+                </p>
+                <textarea
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  rows="4"
+                  placeholder={`Hi ${open.name}, thank you for reaching out...`}
+                  className="focus-ring mt-2 w-full rounded-2xl border border-portfolio-border bg-portfolio-surface/60 px-4 py-3 text-sm"
+                />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={sending}
+                    onClick={send}
+                    className="inline-flex items-center gap-2 rounded-full bg-portfolio-gold px-5 py-2 text-sm font-bold text-portfolio-bg transition hover:bg-portfolio-gold-light disabled:opacity-60"
+                  >
+                    <Send size={14} /> {sending ? "Sending..." : "Send Reply"}
+                  </button>
+                  {!open.read && (
+                    <button
+                      type="button"
+                      onClick={() => mark(open._id)}
+                      className="rounded-full border border-portfolio-border px-4 py-2 text-sm font-semibold text-portfolio-subtext hover:text-portfolio-text"
+                    >
+                      Mark as read
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => remove(open._id)}
+                    className="inline-flex items-center gap-2 rounded-full border border-red-500/50 px-4 py-2 text-sm font-semibold text-red-300 hover:bg-red-500/10"
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminHire;

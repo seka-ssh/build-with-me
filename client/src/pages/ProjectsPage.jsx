@@ -4,10 +4,23 @@ import { Helmet } from "react-helmet-async";
 import PageTransition from "../components/layout/PageTransition";
 import StatusBadge from "../components/ui/StatusBadge";
 import useProjectFilter from "../hooks/useProjectFilter";
-import { categories, statusFilters } from "../data/projects";
 import { useProjects } from "../components/context/ProjectContext";
+
+const statusFilters = ["All", "Finished", "In-Progress", "Pending"];
+const ProjectCategories = [
+  "All",
+  "FinTech",
+  "Banking",
+  "Web App",
+  "Dashboard",
+  "E-Commerce",
+  "Mobile",
+  "Other",
+];
 const ProjectsPage = () => {
   const { state } = useProjects();
+  const loading = state.loading;
+  const error = state.error;
   const {
     status,
     setStatus,
@@ -20,7 +33,7 @@ const ProjectsPage = () => {
   return (
     <PageTransition>
       <Helmet>
-        <title>Projects | Seka Shalom Portfolio</title>
+        <title>Projects | Seka Shalom — Full-Stack Engineer</title>
       </Helmet>
       <section className="min-h-screen bg-portfolio-bg pt-32 pb-24">
         <div className="section-shell">
@@ -59,23 +72,41 @@ const ProjectsPage = () => {
               onChange={(e) => setCategory(e.target.value)}
               className="focus-ring rounded-2xl border border-portfolio-border bg-portfolio-bg px-4 py-3 text-portfolio-text"
             >
-              {categories.map((x) => (
+              {ProjectCategories.map((x) => (
                 <option key={x}>{x}</option>
               ))}
             </select>
           </div>
-          <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {filteredProjects.map((p) => (
-              <Link
-                key={p.slug}
-                to={`/projects/${p.slug}`}
-                className="group rounded-3xl border border-portfolio-border bg-portfolio-surface/75 p-5 transition hover:-translate-y-1 hover:border-portfolio-gold/60 hover:shadow-glow"
-              >
-                <img
-                  src={p.thumbnailUrl}
-                  alt={p.title}
-                  className="h-44 w-full rounded-2xl object-cover"
-                />
+          {loading ? (
+            <p className="mt-10 text-portfolio-subtext">Loading projects…</p>
+          ) : error ? (
+            <p className="mt-10 rounded-3xl border border-red-400/40 bg-red-500/10 p-6 text-red-200">
+              {error}
+            </p>
+          ) : filteredProjects.length === 0 ? (
+            <p className="mt-10 rounded-3xl border border-dashed border-portfolio-border bg-portfolio-surface/40 p-10 text-center text-portfolio-subtext">
+              No projects match your filters yet. Projects are managed from the
+              admin dashboard.
+            </p>
+          ) : (
+            <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {filteredProjects.map((p) => (
+                <Link
+                  key={p._id || p.slug}
+                  to={`/projects/${p.slug}`}
+                  className="group rounded-3xl border border-portfolio-border bg-portfolio-surface/75 p-5 transition hover:-translate-y-1 hover:border-portfolio-gold/60 hover:shadow-glow"
+                >
+                  {p.thumbnailUrl ? (
+                    <img
+                      src={p.thumbnailUrl}
+                      alt={p.title}
+                      className="h-44 w-full rounded-2xl object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-44 w-full items-center justify-center rounded-2xl border border-portfolio-border bg-portfolio-bg text-4xl font-black text-portfolio-gold/40">
+                      {p.title?.charAt(0) || "★"}
+                    </div>
+                  )}
                 <div className="mt-5 flex items-center justify-between gap-3">
                   <span className="text-sm font-semibold text-portfolio-gold">
                     {p.category}
@@ -97,6 +128,7 @@ const ProjectsPage = () => {
               </Link>
             ))}
           </div>
+          )}
         </div>
       </section>
     </PageTransition>

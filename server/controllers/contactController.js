@@ -1,5 +1,6 @@
 const Contact = require("../models/Contact");
 const { sendContactEmail } = require("../utils/emailService");
+const { push } = require("../utils/notify");
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const createContact = async (req, res, next) => {
   try {
@@ -29,6 +30,12 @@ const createContact = async (req, res, next) => {
     const result = await sendContactEmail(contact);
     contact.emailDelivered = result.delivered;
     await contact.save();
+    await push({
+      type: "message",
+      title: "New contact message",
+      body: `${name} (${email}) — ${subject}: ${String(message).slice(0, 90)}`,
+      link: "messages",
+    });
     return res
       .status(201)
       .json({

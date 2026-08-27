@@ -8,8 +8,11 @@ const connectDB = require("./config/db");
 const projectRoutes = require("./routes/projectRoutes");
 const contactRoutes = require("./routes/contactRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const publicRoutes = require("./routes/publicRoutes");
 const { generalLimiter } = require("./middleware/rateLimiter");
 const { notFound, errorHandler } = require("./middleware/errorHandler");
+const ensureAdmin = require("./scripts/ensureAdmin");
 const logger = require("./utils/logger");
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
@@ -35,13 +38,16 @@ app.get("/health", (req, res) =>
 app.use("/api/projects", projectRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api", publicRoutes);
+app.use("/api/admin", adminRoutes);
 app.use(notFound);
 app.use(errorHandler);
 (async () => {
   try {
     await connectDB();
+    await ensureAdmin();
     app.listen(PORT, () =>
-      logger.info(`Seka Portfolio API running on port ${PORT}`),
+      logger.info(`SEKA Shalom API running on port ${PORT}`),
     );
   } catch (e) {
     logger.error(`Server startup failed: ${e.message}`);

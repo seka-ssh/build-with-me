@@ -1,9 +1,10 @@
 import { yupResolver } from "@hookform/resolvers/yup";
-import { Github, Linkedin, Mail, Send, Twitter } from "lucide-react";
+import { Github, Linkedin, Instagram, Mail, Send, Phone } from "lucide-react";
 import { useForm } from "react-hook-form";
 import toast from "react-hot-toast";
 import * as yup from "yup";
 import { sendContactMessage } from "../../services/api";
+import { useSite } from "../context/SiteContext";
 const schema = yup.object({
   name: yup.string().required("Name is required").min(2, "Name is too short"),
   email: yup
@@ -17,6 +18,7 @@ const schema = yup.object({
     .min(20, "Message must be at least 20 characters"),
 });
 const ContactSection = () => {
+  const { settings } = useSite();
   const {
     register,
     handleSubmit,
@@ -59,10 +61,18 @@ const ContactSection = () => {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             {[
-              ["mailto:seka@example.com", Mail, "Email"],
-              ["https://github.com/sekashalom", Github, "GitHub"],
-              ["https://linkedin.com/in/sekashalom", Linkedin, "LinkedIn"],
-              ["https://twitter.com/sekashalom", Twitter, "X"],
+              [`mailto:${settings.email || "sekashalom74@gmail.com"}`, Mail, "Email"],
+              [`tel:${(settings.phonePrimary || "0788212710").replace(/\s/g, "")}`, null, settings.phonePrimary || "0788212710"],
+              [`tel:${(settings.phoneSecondary || "0728212710").replace(/\s/g, "")}`, null, settings.phoneSecondary || "0728212710"],
+              [settings.github || "https://github.com/seka-ssh", Github, "GitHub"],
+              [
+                settings.linkedin || "https://www.linkedin.com/in/seka-shalom-653047394",
+                Linkedin,
+                "LinkedIn",
+              ],
+              ...(settings.instagram
+                ? [[settings.instagram, Instagram, "Instagram"]]
+                : []),
             ].map(([href, Icon, label]) => (
               <a
                 key={label}
@@ -71,7 +81,7 @@ const ContactSection = () => {
                 target={href.startsWith("http") ? "_blank" : undefined}
                 rel={href.startsWith("http") ? "noreferrer" : undefined}
               >
-                <Icon size={18} />
+                {Icon && <Icon size={18} />}
                 {label}
               </a>
             ))}
@@ -124,7 +134,7 @@ const ContactSection = () => {
               <option>General</option>
               <option>Project Inquiry</option>
               <option>Partnership</option>
-              <option>Speaking And Willing</option>
+            <option>Speaking</option>
             </select>
           </label>
           <label className="mt-5 block">

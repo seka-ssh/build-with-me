@@ -13,6 +13,7 @@ const ProjectRoadmap = () => {
   const pathLength = useTransform(scrollYProgress, [0, 1], [0, 1]);
   const open = (p) => dispatch({ type: "SELECT_PROJECT", payload: p });
   const close = () => dispatch({ type: "CLEAR_PROJECT" });
+  const count = state.projects.length;
   return (
     <section
       id="roadmap"
@@ -26,7 +27,9 @@ const ProjectRoadmap = () => {
             Gamified Roadmap
           </p>
           <h2 className="mt-3 font-display text-4xl font-bold text-portfolio-text md:text-5xl">
-            Fourteen systems, one product journey.
+            {count > 0
+              ? `${count} system${count === 1 ? "" : "s"}, one product journey.`
+              : "My product journey."}
           </h2>
           <p className="mt-5 text-lg leading-8 text-portfolio-subtext">
             Finished projects glow, in-progress systems pulse, and pending
@@ -34,31 +37,40 @@ const ProjectRoadmap = () => {
           </p>
         </div>
         <div className="relative mt-16">
-          <svg
-            className="pointer-events-none absolute left-1/2 top-0 hidden h-full w-40 -translate-x-1/2 md:block"
-            preserveAspectRatio="none"
-            viewBox="0 0 160 1800"
-            aria-hidden="true"
-          >
-            <defs>
-              <linearGradient id="roadmap-gradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#F59E0B" />
-                <stop offset="55%" stopColor="#D97706" />
-                <stop offset="100%" stopColor="#6B7280" />
-              </linearGradient>
-            </defs>
-            <motion.path
-              d="M80 0 C20 130 140 180 80 310 C20 440 140 490 80 620 C20 750 140 800 80 930 C20 1060 140 1110 80 1240 C20 1370 140 1420 80 1550 C40 1640 120 1700 80 1800"
-              fill="none"
-              stroke="url(#roadmap-gradient)"
-              strokeWidth="4"
-              strokeDasharray="12 14"
-              style={{ pathLength }}
-            />
-          </svg>
-          {state.projects.map((p, i) => (
-            <RoadmapNode key={p.slug} project={p} index={i} onOpen={open} />
-          ))}
+          {state.projects.length === 0 ? (
+            <p className="rounded-3xl border border-dashed border-portfolio-border bg-portfolio-surface/40 p-10 text-center text-portfolio-subtext">
+              Projects will appear here once they are added from the admin
+              dashboard.
+            </p>
+          ) : (
+            <>
+              <svg
+                className="pointer-events-none absolute left-1/2 top-0 hidden h-full w-40 -translate-x-1/2 md:block"
+                preserveAspectRatio="none"
+                viewBox="0 0 160 1800"
+                aria-hidden="true"
+              >
+                <defs>
+                  <linearGradient id="roadmap-gradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#F59E0B" />
+                    <stop offset="55%" stopColor="#D97706" />
+                    <stop offset="100%" stopColor="#6B7280" />
+                  </linearGradient>
+                </defs>
+                <motion.path
+                  d="M80 0 C20 130 140 180 80 310 C20 440 140 490 80 620 C20 750 140 800 80 930 C20 1060 140 1110 80 1240 C20 1370 140 1420 80 1550 C40 1640 120 1700 80 1800"
+                  fill="none"
+                  stroke="url(#roadmap-gradient)"
+                  strokeWidth="4"
+                  strokeDasharray="12 14"
+                  style={{ pathLength }}
+                />
+              </svg>
+              {state.projects.map((p, i) => (
+                <RoadmapNode key={p.slug || p._id} project={p} index={i} onOpen={open} />
+              ))}
+            </>
+          )}
         </div>
       </div>
       {state.selectedProject && (

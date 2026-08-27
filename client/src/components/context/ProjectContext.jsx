@@ -6,10 +6,9 @@ import {
   useReducer,
 } from "react";
 import { fetchProjects } from "../../services/api";
-import { projects as fallbackProjects } from "../../data/projects";
 const ProjectContext = createContext(null);
 const initialState = {
-  projects: fallbackProjects,
+  projects: [],
   loading: true,
   error: "",
   selectedProject: null,
@@ -19,7 +18,7 @@ const reducer = (s, a) =>
     LOAD_SUCCESS: { ...s, projects: a.payload, loading: false, error: "" },
     LOAD_ERROR: {
       ...s,
-      projects: fallbackProjects,
+      projects: [],
       loading: false,
       error: a.payload,
     },
@@ -32,8 +31,7 @@ export const ProjectProvider = ({ children }) => {
     let ok = true;
     fetchProjects()
       .then((data) => {
-        if (ok && Array.isArray(data) && data.length)
-          dispatch({ type: "LOAD_SUCCESS", payload: data });
+        if (ok) dispatch({ type: "LOAD_SUCCESS", payload: data || [] });
       })
       .catch((e) => {
         if (ok) dispatch({ type: "LOAD_ERROR", payload: e.message });

@@ -10,9 +10,9 @@ const useProjectFilter = (projects) => {
         (status === "All" || p.status === status) &&
         (category === "All" || p.category === category) &&
         (!q ||
-          p.title.toLowerCase().includes(q) ||
-          p.tagline.toLowerCase().includes(q) ||
-          p.techStack.join(" ").toLowerCase().includes(q)),
+          p.title?.toLowerCase().includes(q) ||
+          p.tagline?.toLowerCase().includes(q) ||
+          (p.techStack || []).join(" ").toLowerCase().includes(q)),
     );
   }, [projects, status, category, search]);
   return {

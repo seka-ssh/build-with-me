@@ -30,6 +30,7 @@ const schema = new mongoose.Schema(
     source: { type: String, default: "portfolio" },
     ipAddress: { type: String, default: "" },
     userAgent: { type: String, default: "" },
+    read: { type: Boolean, default: false },
     emailDelivered: { type: Boolean, default: false },
   },
   { timestamps: true },
