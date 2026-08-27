@@ -16,9 +16,9 @@
         "includeFiles": ["server/**/*"]
       }
     }
-  ],
+    ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/server/api/index.js" },
-    { "src": "/(.*)", "dest": "/client/$1" }
+    { "src": "/(.*)", "dest": "/index.html", "status": 200 }
   ]
 }
