@@ -149,10 +149,19 @@ const sendViaEmailJs = async ({ to, subject, body, name, replyTo }) => {
         : {}),
       template_params: {
         to_email: to,
+        // Superset of common variable names so the template renders correctly
+        // no matter which placeholder spelling it references.
+        to_name: name || "SEKA Shalom",
+        name: name || "SEKA Shalom",
+        from_name: name || "SEKA Shalom",
         subject,
+        title: subject,
         message: body,
-        name: name || "",
+        body,
+        content: body,
+        text: body,
         reply_to: replyTo || process.env.RECIPIENT_EMAIL || process.env.SMTP_USER,
+        replyTo: replyTo || process.env.RECIPIENT_EMAIL || process.env.SMTP_USER,
       },
     };
     const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
