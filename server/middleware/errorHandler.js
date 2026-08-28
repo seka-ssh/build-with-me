@@ -6,12 +6,18 @@ const notFound = (req, res, next) => {
 };
 const errorHandler = (err, req, res, next) => {
   const code = err.statusCode || 500;
-  logger.error(`${req.method} ${req.originalUrl} ${code} - ${err.message}`);
+  const msg = err.message || "Internal server error";
+  // Don't log HEAD/OPTIONS as errors (Render + uptime probes). Log 5xx as
+  // error, ordinary 4xx/404 as warning — keeps the logs clean.
+  if (req.method !== "HEAD" && req.method !== "OPTIONS") {
+    if (code >= 500) logger.error(`${req.method} ${req.originalUrl} ${code} - ${msg}`);
+    else logger.warn(`${req.method} ${req.originalUrl} ${code} - ${msg}`);
+  }
   res
     .status(code)
     .json({
       success: false,
-      message: err.message || "Internal server error",
+      message: msg,
       stack: process.env.NODE_ENV === "production" ? undefined : err.stack,
     });
   void next;

@@ -35,6 +35,17 @@ app.get("/health", (req, res) =>
     timestamp: new Date().toISOString(),
   }),
 );
+
+// Root route — returns 200 so Render's health probe (HEAD /) and any
+// root-level check never hit the 404 handler.
+app.get("/", (req, res) =>
+  res.json({
+    success: true,
+    service: "seka-portfolio-api",
+    status: "healthy",
+    message: "API is running. Use /health or /api/* for endpoints.",
+  }),
+);
 app.use("/api/projects", projectRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/analytics", analyticsRoutes);
