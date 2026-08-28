@@ -1,12 +1,18 @@
-/* Live SMTP test — verifies Gmail credentials and sends a test email. */
+/* Live SMTP test — verifies Gmail credentials and sends a test email.
+   Uses SMTP_PORT (default 587); if SMTP_PORT=465 it enables implicit TLS. */
 require("dotenv").config();
 const nodemailer = require("nodemailer");
 
+const port = Number(process.env.SMTP_PORT || 587);
+
 const t = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: 587,
-  secure: false,
+  port,
+  secure: port === 465,
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  connectionTimeout: 8000,
+  greetingTimeout: 8000,
+  socketTimeout: 10000,
 });
 
 (async () => {
