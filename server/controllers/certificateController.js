@@ -1,4 +1,6 @@
 const Certificate = require("../models/Certificate");
+const mongoose = require("mongoose");
+const { isValidObjectId } = mongoose;
 
 const getAll = async (req, res, next) => {
   try {
@@ -34,8 +36,11 @@ const create = async (req, res, next) => {
 
 const update = async (req, res, next) => {
   try {
-    const c = await Certificate.findById(req.params.id);
-    if (!c) return res.status(404).json({ success: false, message: "Certificate not found." });
+    const { id } = req.params;
+    if (!isValidObjectId(id))
+      return res
+        .status(400)
+        .json({ success: false, message: `Invalid certificate id: ${id}` });
     const allowed = [
       "title",
       "issuer",
@@ -45,10 +50,18 @@ const update = async (req, res, next) => {
       "credentialId",
       "order",
     ];
+    const updateDoc = {};
     allowed.forEach((k) => {
-      if (req.body[k] !== undefined) c[k] = req.body[k];
+      if (req.body[k] !== undefined) updateDoc[k] = req.body[k];
     });
-    await c.save();
+    const c = await Certificate.findByIdAndUpdate(id, updateDoc, {
+      new: true,
+      runValidators: true,
+    });
+    if (!c)
+      return res
+        .status(404)
+        .json({ success: false, message: `Certificate not found (id: ${id}).` });
     return res.json({ success: true, data: c });
   } catch (e) {
     return next(e);
@@ -57,8 +70,16 @@ const update = async (req, res, next) => {
 
 const remove = async (req, res, next) => {
   try {
-    const c = await Certificate.findByIdAndDelete(req.params.id);
-    if (!c) return res.status(404).json({ success: false, message: "Certificate not found." });
+    const { id } = req.params;
+    if (!isValidObjectId(id))
+      return res
+        .status(400)
+        .json({ success: false, message: `Invalid certificate id: ${id}` });
+    const c = await Certificate.findByIdAndDelete(id);
+    if (!c)
+      return res
+        .status(404)
+        .json({ success: false, message: `Certificate not found (id: ${id}).` });
     return res.json({ success: true, message: "Certificate deleted." });
   } catch (e) {
     return next(e);

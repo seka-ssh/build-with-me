@@ -92,6 +92,10 @@ const AdminCertificates = () => {
       load();
     } catch (err) {
       toast.error(err.message);
+      // Record may have been deleted elsewhere — refresh the list and exit
+      // edit mode so a stale id can't keep causing "Certificate not found."
+      reset();
+      load();
     } finally {
       setLoading(false);
     }
