@@ -55,6 +55,7 @@ const sendViaResend = async ({ to, subject, html, text, replyTo, fromName }) => 
 };
 
 const sendContactEmail = async (contact) => {
+  let smtpError = "";
   if (!configured() && !resendConfigured()) {
     logger.warn("SMTP not configured. Contact saved only.");
     return {
@@ -80,9 +81,8 @@ const sendContactEmail = async (contact) => {
       });
       return { delivered: true, messageId: info.messageId };
     } catch (e) {
-      logger.warn(
-        `SMTP delivery failed (${e.message}); trying Resend fallback…`,
-      );
+      smtpError = e.message || String(e);
+      logger.warn(`SMTP delivery failed (${smtpError}); trying Resend fallback…`);
     }
   }
   if (resendConfigured()) {
@@ -98,11 +98,15 @@ const sendContactEmail = async (contact) => {
       logger.warn(`Resend fallback also failed: ${e.message}`);
     }
   }
-  return { delivered: false, error: "Email could not be sent." };
+  return {
+    delivered: false,
+    error: `Email could not be sent. ${smtpError ? `SMTP said: ${smtpError}` : "No mail provider configured."}`,
+  };
 };
 
 // Admin: reply to any sender from the dashboard
 const sendReply = async ({ to, subject, body, fromName }) => {
+  let smtpError = "";
   if (!configured() && !resendConfigured()) {
     logger.warn("SMTP not configured. Reply not sent.");
     return {
@@ -125,9 +129,8 @@ const sendReply = async ({ to, subject, body, fromName }) => {
       });
       return { delivered: true, messageId: info.messageId };
     } catch (e) {
-      logger.warn(
-        `SMTP reply delivery failed (${e.message}); trying Resend fallback…`,
-      );
+      smtpError = e.message || String(e);
+      logger.warn(`SMTP reply delivery failed (${smtpError}); trying Resend fallback…`);
     }
   }
   if (resendConfigured()) {
@@ -143,7 +146,10 @@ const sendReply = async ({ to, subject, body, fromName }) => {
       logger.warn(`Resend fallback for reply also failed: ${e.message}`);
     }
   }
-  return { delivered: false, error: "Email could not be sent." };
+  return {
+    delivered: false,
+    error: `Email could not be sent. ${smtpError ? `SMTP said: ${smtpError}` : "No mail provider configured."}`,
+  };
 };
 
 module.exports = { sendContactEmail, sendReply };
