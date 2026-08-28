@@ -42,25 +42,20 @@ app.use("/api", publicRoutes);
 app.use("/api/admin", adminRoutes);
 app.use(notFound);
 app.use(errorHandler);
-// In Vercel serverless mode the module is `require`-ed, so we must NOT call
-// app.listen (that binds a port). We still boot DB + admin on cold start.
-if (require.main === module) {
-  (async () => {
-    try {
-      await connectDB();
-      await ensureAdmin();
-      app.listen(PORT, () =>
-        logger.info(`SEKA Shalom API running on port ${PORT}`),
-      );
-    } catch (e) {
-      logger.error(`Server startup failed: ${e.message}`);
-      process.exit(1);
-    }
-  })();
-} else {
-  connectDB().catch((e) => logger.error(`DB connect failed: ${e.message}`));
-  ensureAdmin().catch((e) => logger.error(`ensureAdmin failed: ${e.message}`));
-}
+// The API runs as its OWN service — separate from the static client.
+// Host it on Render, Railway, Fly.io, a VPS, etc. `START` command is
+// `npm start` (server/package.json → `node server.js`); the platform injects PORT.
+(async () => {
+  try {
+    await connectDB();
+    await ensureAdmin();
+    app.listen(PORT, () =>
+      logger.info(`SEKA Shalom API running on port ${PORT}`),
+    );
+  } catch (e) {
+    logger.error(`Server startup failed: ${e.message}`);
+    process.exit(1);
+  }
+})();
 
-// Export the Express app so Vercel (@vercel/node) can run it as a lambda.
 module.exports = { app, PORT };

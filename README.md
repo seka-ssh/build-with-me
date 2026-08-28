@@ -30,6 +30,28 @@ Production-ready full-stack portfolio with a password-protected **Admin Dashboar
 
 > There is **no demo/seed data**. Everything on the site is real content you add from the admin panel (empty states are shown until you add content).
 
+## Hosting (client & API are deployed SEPARATELY)
+
+This repo is **not** deployed as a single Vercel app anymore. There is **no `vercel.json`** — the client and the API are two independent deployments that talk to each other:
+
+| Part | Folder | Host it as | Start / Build |
+|---|---|---|---|
+| **Client** (React + Vite static site) | `client/` | Vercel, Netlify, Cloudflare Pages, GitHub Pages… | Build: `npm run build` → output `client/dist` |
+| **API** (Express + MongoDB) | `server/` | Render, Railway, Fly.io, a VPS… any long-running Node host | Start: `npm start` (`node server.js`), platform injects `PORT=…` |
+
+### Client (static host)
+- Point it at `client/`, framework preset **Vite**, output dir `dist`.
+- Set one env var at build time:
+  ```
+  VITE_API_BASE_URL=https://YOUR-API-HOST/api
+  ```
+  (If omitted, the app calls same-origin `/api`, which only works via the dev proxy on `localhost`.)
+
+### API (Node host)
+- Point it at `server/`, start command `npm start`, add all vars from `server/.env.example`.
+- **`CORS_ORIGIN` is mandatory** — comma-separated list of your client URL(s), e.g. `https://yourclient.vercel.app`. Requests from any origin NOT listed will be blocked.
+- Health check: `https://YOUR-API-HOST/health`.
+
 ## Run locally
 
 ### 1. Environment
