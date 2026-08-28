@@ -134,7 +134,7 @@ const emailjsConfigured = () =>
       process.env.EMAILJS_PUBLIC_KEY,
   );
 
-const sendViaEmailJs = async ({ to, subject, body, name }) => {
+const sendViaEmailJs = async ({ to, subject, body, name, replyTo }) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10000);
   try {
@@ -152,7 +152,7 @@ const sendViaEmailJs = async ({ to, subject, body, name }) => {
         subject,
         message: body,
         name: name || "",
-        reply_to: process.env.RECIPIENT_EMAIL || process.env.SMTP_USER,
+        reply_to: replyTo || process.env.RECIPIENT_EMAIL || process.env.SMTP_USER,
       },
     };
     const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
@@ -185,7 +185,23 @@ const sendContactEmail = async (contact) => {
   const text = `${contact.name} (${contact.email}) wrote:\n\n${contact.message}`;
   const html = `<h2>New portfolio contact</h2><p><b>Name:</b> ${contact.name}</p><p><b>Email:</b> ${contact.email}</p><p><b>Subject:</b> ${contact.subject}</p><p>${(contact.message || "").replace(/\n/g, "<br>")}</p>`;
 
-  // Try SMTP first (both hosts/ports), then EmailJS, then Resend.
+  // Order: EmailJS first (fast, works from ANY host — Gmail SMTP times out on
+  // cloud IPs like Render; trying SMTP first burns ~28s of timeouts and
+  // exceeds the client's 20s request timeout), then SMTP, then Resend.
+  if (emailjsConfigured()) {
+    try {
+      return await sendViaEmailJs({
+        to: process.env.RECIPIENT_EMAIL || process.env.SMTP_USER,
+        subject: `Portfolio Contact: ${contact.subject}`,
+        body: `${contact.name} (${contact.email}) wrote:\n\n${contact.message}`,
+        name: contact.name,
+        replyTo: contact.email,
+      });
+    } catch (e) {
+      smtpError = e.message || String(e);
+      logger.warn(`EmailJS send failed (${smtpError}); trying SMTP…`);
+    }
+  }
   if (configured()) {
     try {
       return await sendViaSmtp({
@@ -198,19 +214,7 @@ const sendContactEmail = async (contact) => {
       });
     } catch (e) {
       smtpError = e.message || String(e);
-      logger.warn(`SMTP delivery failed (${smtpError}); trying EmailJS fallback…`);
-    }
-  }
-  if (emailjsConfigured()) {
-    try {
-      return await sendViaEmailJs({
-        to: process.env.RECIPIENT_EMAIL || process.env.SMTP_USER,
-        subject: `Portfolio Contact: ${contact.subject}`,
-        body: `${contact.name} (${contact.email}) wrote:\n\n${contact.message}`,
-        name: contact.name,
-      });
-    } catch (e) {
-      logger.warn(`EmailJS fallback failed: ${e.message}`);
+      logger.warn(`SMTP delivery failed (${smtpError}); trying Resend fallback…`);
     }
   }
   if (resendConfigured()) {
@@ -223,12 +227,13 @@ const sendContactEmail = async (contact) => {
         html,
       });
     } catch (e) {
+      smtpError = e.message || String(e);
       logger.warn(`Resend fallback also failed: ${e.message}`);
     }
   }
   return {
     delivered: false,
-    error: `Email could not be sent. ${smtpError ? `SMTP said: ${smtpError}` : "No mail provider configured."}`,
+    error: `Email could not be sent. ${smtpError ? `Last provider error: ${smtpError}` : "No mail provider configured."}`,
   };
 };
 
@@ -246,6 +251,20 @@ const sendReply = async ({ to, subject, body, fromName }) => {
   const text = body;
   const html = (body || "").replace(/\n/g, "<br>");
 
+  // EmailJS first — see the ordering note in sendContactEmail.
+  if (emailjsConfigured()) {
+    try {
+      return await sendViaEmailJs({
+        to,
+        subject,
+        body,
+        name: fromName || process.env.ADMIN_NAME || "SEKA",
+      });
+    } catch (e) {
+      smtpError = e.message || String(e);
+      logger.warn(`EmailJS reply send failed (${smtpError}); trying SMTP…`);
+    }
+  }
   if (configured()) {
     try {
       return await sendViaSmtp({
@@ -257,19 +276,7 @@ const sendReply = async ({ to, subject, body, fromName }) => {
       });
     } catch (e) {
       smtpError = e.message || String(e);
-      logger.warn(`SMTP reply delivery failed (${smtpError}); trying EmailJS fallback…`);
-    }
-  }
-  if (emailjsConfigured()) {
-    try {
-      return await sendViaEmailJs({
-        to,
-        subject,
-        body,
-        name: fromName || process.env.ADMIN_NAME || "SEKA",
-      });
-    } catch (e) {
-      logger.warn(`EmailJS fallback for reply failed: ${e.message}`);
+      logger.warn(`SMTP reply delivery failed (${smtpError}); trying Resend fallback…`);
     }
   }
   if (resendConfigured()) {
@@ -282,12 +289,13 @@ const sendReply = async ({ to, subject, body, fromName }) => {
         fromName,
       });
     } catch (e) {
+      smtpError = e.message || String(e);
       logger.warn(`Resend fallback for reply also failed: ${e.message}`);
     }
   }
   return {
     delivered: false,
-    error: `Email could not be sent. ${smtpError ? `SMTP said: ${smtpError}` : "No mail provider configured."}`,
+    error: `Email could not be sent. ${smtpError ? `Last provider error: ${smtpError}` : "No mail provider configured."}`,
   };
 };
 
