@@ -44,7 +44,7 @@ export const SiteProvider = ({ children }) => {
   const [skills, setSkills] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+    useEffect(() => {
     let ok = true;
     Promise.allSettled([
       fetchSiteSettings(),
@@ -53,8 +53,11 @@ export const SiteProvider = ({ children }) => {
       fetchSkills(),
     ]).then(([s, t, c, k]) => {
       if (!ok) return;
-      if (s.status === "fulfilled" && s.value)
+      if (s.status === "fulfilled" && s.value) {
         setSettings((prev) => ({ ...prev, ...s.value }));
+      } else if (s.status === "rejected") {
+        console.error("SiteContext: fetchSiteSettings rejected", s.reason);
+      }
       if (t.status === "fulfilled" && Array.isArray(t.value))
         setTestimonials(t.value);
       if (c.status === "fulfilled" && Array.isArray(c.value))
