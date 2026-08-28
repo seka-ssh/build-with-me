@@ -57,7 +57,11 @@ const sendViaResend = async ({ to, subject, html, text, replyTo, fromName }) => 
 const sendContactEmail = async (contact) => {
   if (!configured() && !resendConfigured()) {
     logger.warn("SMTP not configured. Contact saved only.");
-    return { delivered: false };
+    return {
+      delivered: false,
+      error:
+        "Email delivery is not configured. Add SMTP_* or RESEND_API_KEY to the server environment.",
+    };
   }
   const text = `${contact.name} (${contact.email}) wrote:\n\n${contact.message}`;
   const html = `<h2>New portfolio contact</h2><p><b>Name:</b> ${contact.name}</p><p><b>Email:</b> ${contact.email}</p><p><b>Subject:</b> ${contact.subject}</p><p>${(contact.message || "").replace(/\n/g, "<br>")}</p>`;
@@ -101,7 +105,11 @@ const sendContactEmail = async (contact) => {
 const sendReply = async ({ to, subject, body, fromName }) => {
   if (!configured() && !resendConfigured()) {
     logger.warn("SMTP not configured. Reply not sent.");
-    return { delivered: false };
+    return {
+      delivered: false,
+      error:
+        "Email delivery is not configured. Add SMTP_* or RESEND_API_KEY to the server environment.",
+    };
   }
   const text = body;
   const html = (body || "").replace(/\n/g, "<br>");

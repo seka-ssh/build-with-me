@@ -61,7 +61,7 @@ const reply = async (req, res, next) => {
       success: true,
       message: result.delivered
         ? "Reply sent by email."
-        : "Saved, but email delivery is not configured (SMTP missing).",
+        : result.error || "Saved, but email could not be delivered.",
       delivered: result.delivered,
     });
   } catch (e) {
