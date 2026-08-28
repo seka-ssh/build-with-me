@@ -36,6 +36,57 @@ app.get("/health", (req, res) =>
   }),
 );
 
+// Public diagnostic: can this server open a TCP socket to the configured SMTP
+// endpoints? No auth, no credentials — just raw connectivity from this host.
+// On Render: if results show "connection timeout" for ALL host:port combos,
+// Google is dropping the SMTP connection from Render's IP (known limitation).
+app.get("/api/email-probe", (req, res) => {
+  const net = require("net");
+  const primaryHost = (process.env.SMTP_HOST || "smtp.gmail.com")
+    .trim()
+    .toLowerCase();
+  const hosts = [
+    ...new Set(
+      primaryHost === "smtp.gmail.com"
+        ? [primaryHost, "smtp.googlemail.com"]
+        : [primaryHost],
+    ),
+  ];
+  const primaryPort = Number(process.env.SMTP_PORT || 587);
+  const ports = [
+    ...new Set(primaryPort === 465 ? [465, 587] : [587, 465]),
+  ];
+  const results = [];
+  let done = 0;
+  const total = hosts.length * ports.length;
+  const finish = () => {
+    if (++done === total) res.json({ success: true, results });
+  };
+  if (total === 0) return res.json({ success: true, results: [] });
+  for (const host of hosts) {
+    for (const port of ports) {
+      const entry = { host, port, open: false, error: "" };
+      const s = net.connect({ host, port, timeout: 5000 });
+      s.on("connect", () => {
+        entry.open = true;
+        s.destroy();
+        finish();
+      });
+      s.on("timeout", () => {
+        entry.error = "connection timeout";
+        s.destroy();
+        finish();
+      });
+      s.on("error", (e) => {
+        entry.error = e.code || e.message;
+        s.destroy();
+        finish();
+      });
+      results.push(entry);
+    }
+  }
+});
+
 // Root route — returns 200 so Render's health probe (HEAD /) and any
 // root-level check never hit the 404 handler.
 app.get("/", (req, res) =>
