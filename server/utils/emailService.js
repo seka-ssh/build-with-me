@@ -142,6 +142,11 @@ const sendViaEmailJs = async ({ to, subject, body, name }) => {
       service_id: process.env.EMAILJS_SERVICE_ID,
       template_id: process.env.EMAILJS_TEMPLATE_ID,
       user_id: process.env.EMAILJS_PUBLIC_KEY,
+      // Server-side (REST) calls require the private key (accessToken) unless
+      // the account explicitly allows token-less API access.
+      ...(process.env.EMAILJS_PRIVATE_KEY
+        ? { accessToken: process.env.EMAILJS_PRIVATE_KEY }
+        : {}),
       template_params: {
         to_email: to,
         subject,
@@ -169,12 +174,12 @@ const sendViaEmailJs = async ({ to, subject, body, name }) => {
 
 const sendContactEmail = async (contact) => {
   let smtpError = "";
-  if (!configured() && !resendConfigured()) {
-    logger.warn("SMTP not configured. Contact saved only.");
+  if (!configured() && !emailjsConfigured() && !resendConfigured()) {
+    logger.warn("No mail provider configured. Contact saved only.");
     return {
       delivered: false,
       error:
-        "Email delivery is not configured. Add SMTP_* or RESEND_API_KEY to the server environment.",
+        "Email delivery is not configured. Add SMTP_*, EMAILJS_* or RESEND_API_KEY to the server environment.",
     };
   }
   const text = `${contact.name} (${contact.email}) wrote:\n\n${contact.message}`;
@@ -230,12 +235,12 @@ const sendContactEmail = async (contact) => {
 // Admin: reply to any sender from the dashboard
 const sendReply = async ({ to, subject, body, fromName }) => {
   let smtpError = "";
-  if (!configured() && !resendConfigured()) {
-    logger.warn("SMTP not configured. Reply not sent.");
+  if (!configured() && !emailjsConfigured() && !resendConfigured()) {
+    logger.warn("No mail provider configured. Reply not sent.");
     return {
       delivered: false,
       error:
-        "Email delivery is not configured. Add SMTP_* or RESEND_API_KEY to the server environment.",
+        "Email delivery is not configured. Add SMTP_*, EMAILJS_* or RESEND_API_KEY to the server environment.",
     };
   }
   const text = body;
