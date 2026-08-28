@@ -63,4 +63,14 @@ router.patch("/notifications/read-all", notification.markAllRead);
 router.patch("/notifications/:id/read", notification.markRead);
 router.delete("/notifications/:id", notification.remove);
 
+// Admin: SMTP connectivity test (isolates Render→Gmail reachability without sending)
+router.post("/test-email", async (req, res, next) => {
+  try {
+    const { testSmtpConnection } = require("../utils/emailService");
+    return res.json({ success: true, ...(await testSmtpConnection()) });
+  } catch (e) {
+    return next(e);
+  }
+});
+
 module.exports = router;

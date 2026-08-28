@@ -6,6 +6,18 @@ const configured = () =>
     process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
   );
 
+// Candidate hosts: the configured one first, plus Gmail's alternate hostname,
+// because routing/firewalling can differ between "smtp.gmail.com" and
+// "smtp.googlemail.com".
+const smtpHosts = (() => {
+  const primary = (process.env.SMTP_HOST || "smtp.gmail.com")
+    .trim()
+    .toLowerCase();
+  const list = [primary];
+  if (primary === "smtp.gmail.com") list.push("smtp.googlemail.com");
+  return [...new Set(list)];
+})();
+
 // Try the configured SMTP port first, then the other Gmail-friendly port.
 // 465 (implicit TLS) often passes where 587 is blocked/blackholed by a host.
 const smtpPorts = (() => {
@@ -14,35 +26,67 @@ const smtpPorts = (() => {
   return [...new Set(candidates)];
 })();
 
-const transporter = (port, isFallback = false) =>
+const transporter = (host, port, isFallback = false) =>
   nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host,
     port,
     secure: port === 465,
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     // Fail fast instead of hanging — the API has a 20s axios timeout.
-    connectionTimeout: isFallback ? 5000 : 8000,
-    greetingTimeout: isFallback ? 5000 : 8000,
-    socketTimeout: isFallback ? 6000 : 10000,
+    connectionTimeout: isFallback ? 5000 : 9000,
+    greetingTimeout: isFallback ? 5000 : 9000,
+    socketTimeout: isFallback ? 7000 : 15000,
   });
 
-// Try each SMTP port in order; returns first success or throws the last error.
+// Try each (host, port) combination in order; returns the first success or
+// throws with detailed per-attempt errors so we can diagnose from the logs.
 const sendViaSmtp = async (mailOptions) => {
   let lastErr = null;
-  for (let i = 0; i < smtpPorts.length; i++) {
-    const port = smtpPorts[i];
-    try {
-      const tx = transporter(port, i > 0);
-      const info = await tx.sendMail(mailOptions);
-      logger.info(`Email sent via SMTP port ${port}: ${info.messageId}`);
-      return { delivered: true, messageId: info.messageId, port };
-    } catch (e) {
-      lastErr = e;
-      const msg = e.message || String(e);
-      logger.warn(`SMTP port ${port} failed (${msg})${i + 1 < smtpPorts.length ? " — trying next…" : ""}`);
+  const attempts = [];
+  for (const host of smtpHosts) {
+    for (let i = 0; i < smtpPorts.length; i++) {
+      const port = smtpPorts[i];
+      try {
+        const tx = transporter(host, port, i > 0 || smtpHosts[0] !== host);
+        const info = await tx.sendMail(mailOptions);
+        logger.info(`Email sent via SMTP ${host}:${port} (${info.messageId})`);
+        return { delivered: true, messageId: info.messageId, host, port };
+      } catch (e) {
+        lastErr = e;
+        const msg = (e.message || String(e)).slice(0, 300);
+        attempts.push(`SMTP ${host}:${port} -> ${msg}`);
+        logger.warn(`SMTP ${host}:${port} failed (${msg}); trying next…`);
+      }
     }
   }
-  throw lastErr || new Error("SMTP send failed on all ports.");
+  const err = new Error(`SMTP failed on all hosts/ports. ${attempts.join(" | ")}`);
+  err.details = attempts;
+  throw err;
+};
+
+// Diagnostic helper: report connection + AUTH status for every host:port combo.
+// Used by the admin "test email" endpoint to isolate Render→Gmail reachability.
+const testSmtpConnection = async () => {
+  if (!configured()) {
+    return { configured: false, message: "SMTP not configured on server env." };
+  }
+  const results = [];
+  for (const host of smtpHosts) {
+    for (const port of smtpPorts) {
+      const entry = { host, port, ok: false, error: "" };
+      try {
+        // Use short fallback timeouts so the whole test returns quickly.
+        const tx = transporter(host, port, true);
+        await tx.verify();
+        entry.ok = true;
+        entry.message = "connection + AUTH OK";
+      } catch (e) {
+        entry.error = (e.message || String(e)).slice(0, 300);
+      }
+      results.push(entry);
+    }
+  }
+  return { configured: true, results };
 };
 
 // Optional Resend fallback so email still works if SMTP is flaky.
@@ -176,4 +220,4 @@ const sendReply = async ({ to, subject, body, fromName }) => {
   };
 };
 
-module.exports = { sendContactEmail, sendReply };
+module.exports = { sendContactEmail, sendReply, testSmtpConnection };
