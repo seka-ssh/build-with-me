@@ -125,6 +125,48 @@ const sendViaResend = async ({ to, subject, html, text, replyTo, fromName }) => 
   }
 };
 
+// Optional EmailJS fallback — no domain required, works from any host
+// (EmailJS's servers do the actual sending).
+const emailjsConfigured = () =>
+  Boolean(
+    process.env.EMAILJS_SERVICE_ID &&
+      process.env.EMAILJS_TEMPLATE_ID &&
+      process.env.EMAILJS_PUBLIC_KEY,
+  );
+
+const sendViaEmailJs = async ({ to, subject, body, name }) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const payload = {
+      service_id: process.env.EMAILJS_SERVICE_ID,
+      template_id: process.env.EMAILJS_TEMPLATE_ID,
+      user_id: process.env.EMAILJS_PUBLIC_KEY,
+      template_params: {
+        to_email: to,
+        subject,
+        message: body,
+        name: name || "",
+        reply_to: process.env.RECIPIENT_EMAIL || process.env.SMTP_USER,
+      },
+    };
+    const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`EmailJS HTTP ${res.status}: ${txt.slice(0, 200)}`);
+    }
+    const text = await res.text();
+    return { delivered: true, messageId: text || "emailjs-ok" };
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
 const sendContactEmail = async (contact) => {
   let smtpError = "";
   if (!configured() && !resendConfigured()) {
@@ -138,7 +180,7 @@ const sendContactEmail = async (contact) => {
   const text = `${contact.name} (${contact.email}) wrote:\n\n${contact.message}`;
   const html = `<h2>New portfolio contact</h2><p><b>Name:</b> ${contact.name}</p><p><b>Email:</b> ${contact.email}</p><p><b>Subject:</b> ${contact.subject}</p><p>${(contact.message || "").replace(/\n/g, "<br>")}</p>`;
 
-  // Try SMTP first (both ports), then Resend fallback.
+  // Try SMTP first (both hosts/ports), then EmailJS, then Resend.
   if (configured()) {
     try {
       return await sendViaSmtp({
@@ -151,7 +193,19 @@ const sendContactEmail = async (contact) => {
       });
     } catch (e) {
       smtpError = e.message || String(e);
-      logger.warn(`SMTP delivery failed (${smtpError}); trying Resend fallback…`);
+      logger.warn(`SMTP delivery failed (${smtpError}); trying EmailJS fallback…`);
+    }
+  }
+  if (emailjsConfigured()) {
+    try {
+      return await sendViaEmailJs({
+        to: process.env.RECIPIENT_EMAIL || process.env.SMTP_USER,
+        subject: `Portfolio Contact: ${contact.subject}`,
+        body: `${contact.name} (${contact.email}) wrote:\n\n${contact.message}`,
+        name: contact.name,
+      });
+    } catch (e) {
+      logger.warn(`EmailJS fallback failed: ${e.message}`);
     }
   }
   if (resendConfigured()) {
@@ -198,7 +252,19 @@ const sendReply = async ({ to, subject, body, fromName }) => {
       });
     } catch (e) {
       smtpError = e.message || String(e);
-      logger.warn(`SMTP reply delivery failed (${smtpError}); trying Resend fallback…`);
+      logger.warn(`SMTP reply delivery failed (${smtpError}); trying EmailJS fallback…`);
+    }
+  }
+  if (emailjsConfigured()) {
+    try {
+      return await sendViaEmailJs({
+        to,
+        subject,
+        body,
+        name: fromName || process.env.ADMIN_NAME || "SEKA",
+      });
+    } catch (e) {
+      logger.warn(`EmailJS fallback for reply failed: ${e.message}`);
     }
   }
   if (resendConfigured()) {
