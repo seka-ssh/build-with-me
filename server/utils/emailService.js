@@ -260,6 +260,28 @@ const sendReply = async ({ to, subject, body, fromName }) => {
   const text = body;
   const html = (body || "").replace(/\n/g, "<br>");
 
+  // Replies target arbitrary visitor addresses. The EmailJS free plan only
+  // delivers to the account owner's email (without a verified domain there
+  // are no external recipients), so when a real relay (non-Gmail SMTP, e.g.
+  // Brevo/SendGrid) is configured it MUST be preferred for replies —
+  // otherwise EmailJS reports success while the visitor receives nothing.
+  const relayConfigured =
+    configured() && !smtpHosts.includes("smtp.gmail.com");
+  if (relayConfigured) {
+    try {
+      return await sendViaSmtp({
+        from: `${fromName || process.env.ADMIN_NAME || "SEKA Shalom"} <${process.env.SMTP_USER}>`,
+        to,
+        subject,
+        text,
+        html,
+      });
+    } catch (e) {
+      smtpError = e.message || String(e);
+      logger.warn(`Relay reply send failed (${smtpError}); trying EmailJS…`);
+    }
+  }
+
   // EmailJS first — see the ordering note in sendContactEmail.
   if (emailjsConfigured()) {
     try {
