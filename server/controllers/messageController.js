@@ -61,8 +61,11 @@ const reply = async (req, res, next) => {
       success: true,
       message: result.delivered
         ? "Reply sent by email."
+        : result.skipped
+        ? "Reply saved. Email delivery is turned off on the server."
         : result.error || "Saved, but email could not be delivered.",
       delivered: result.delivered,
+      skipped: Boolean(result.skipped),
     });
   } catch (e) {
     return next(e);

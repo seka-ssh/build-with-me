@@ -6,6 +6,12 @@ const configured = () =>
     process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
   );
 
+// Master switch: set EMAIL_ENABLED=false on the host to skip email sending
+// entirely — no SMTP attempts, no timeout errors. Messages/replies still
+// save and notifications still fire. Turn it back on (or remove the var)
+// anytime to re-enable sending.
+const emailEnabled = () => process.env.EMAIL_ENABLED !== "false";
+
 // Gmail via nodemailer — account email + App Password only.
 // `family: 4` forces IPv4: Node ≥17 prefers IPv6 (AAAA) first, and Render's
 // IPv6 route to Gmail blackholes — that was causing the ETIMEDOUTs.
@@ -67,6 +73,7 @@ const testSmtpConnection = async () => {
 
 // Contact: notify the owner that a visitor wrote (Gmail + App Password).
 const sendContactEmail = async (contact) => {
+  if (!emailEnabled()) return { delivered: false, skipped: true, error: "" };
   if (!configured()) {
     return {
       delivered: false,
@@ -97,6 +104,7 @@ const sendContactEmail = async (contact) => {
 
 // Admin: reply to a sender from the dashboard (Gmail + App Password).
 const sendReply = async ({ to, subject, body, fromName }) => {
+  if (!emailEnabled()) return { delivered: false, skipped: true, error: "" };
   if (!configured()) {
     logger.warn("No mail provider configured. Reply not sent.");
     return {

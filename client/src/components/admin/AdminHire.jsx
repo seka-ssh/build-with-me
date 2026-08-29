@@ -66,7 +66,7 @@ const AdminHire = () => {
     setSending(true);
     try {
       const r = await replyToHire(open._id, reply);
-      r.delivered ? toast.success(r.message) : toast.error(r.message);
+      r.delivered || r.skipped ? toast.success(r.message) : toast.error(r.message);
       setReply("");
     } catch (e) {
       toast.error(e.message);

@@ -56,7 +56,7 @@ const AdminMessages = () => {
     setSending(true);
     try {
       const r = await replyToMessage(open._id, reply);
-      r.delivered ? toast.success(r.message) : toast.error(r.message);
+      r.delivered || r.skipped ? toast.success(r.message) : toast.error(r.message);
       setReply("");
     } catch (e) {
       toast.error(e.message);
