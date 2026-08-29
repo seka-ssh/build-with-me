@@ -6,13 +6,19 @@ const configured = () =>
     process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS,
   );
 
-// Gmail via nodemailer — account email + App Password only (per requirement).
+// Gmail via nodemailer — account email + App Password only.
+// `family: 4` forces IPv4: Node ≥17 prefers IPv6 (AAAA) first, and Render's
+// IPv6 route to Gmail blackholes — that was causing the ETIMEDOUTs.
+const port = Number(process.env.SMTP_PORT || 465);
 const transporter = () =>
   nodemailer.createTransport({
-    service: "gmail",
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
+    port,
+    secure: port === 465, // 465 = implicit TLS; 587 = STARTTLS
+    family: 4, // force IPv4 — fixes the Render routing problem
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    connectionTimeout: 9000,
-    greetingTimeout: 9000,
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
     socketTimeout: 15000,
   });
 

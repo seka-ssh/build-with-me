@@ -65,8 +65,8 @@ app.get("/api/email-probe", (req, res) => {
   if (total === 0) return res.json({ success: true, results: [] });
   for (const host of hosts) {
     for (const port of ports) {
-      const entry = { host, port, open: false, error: "" };
-      const s = net.connect({ host, port, timeout: 5000 });
+      const entry = { host, port, family: 4, open: false, error: "" };
+      const s = net.connect({ host, port, family: 4, timeout: 5000 });
       s.on("connect", () => {
         entry.open = true;
         s.destroy();
