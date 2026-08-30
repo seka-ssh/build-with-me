@@ -40,8 +40,9 @@ app.get("/health", (req, res) =>
 // endpoints? No auth, no credentials — just raw connectivity from this host.
 // On Render: if results show "connection timeout" for ALL host:port combos,
 // Google is dropping the SMTP connection from Render's IP (known limitation).
-app.get("/api/email-probe", (req, res) => {
+app.get("/api/email-probe", async (req, res) => {
   const net = require("net");
+  const dns = require("dns");
   const primaryHost = (process.env.SMTP_HOST || "smtp.gmail.com")
     .trim()
     .toLowerCase();
@@ -57,10 +58,23 @@ app.get("/api/email-probe", (req, res) => {
     ...new Set(primaryPort === 465 ? [465, 587] : [587, 465]),
   ];
   const results = [];
+  // Show the actual IPs this host resolves to (A vs AAAA) — helps pinpoint
+  // whether the block is IP-version-specific or total.
+  const dnsInfo = {};
+  try {
+    dnsInfo.ipv4 = await dns.promises.resolve4(primaryHost);
+  } catch (e) {
+    dnsInfo.ipv4 = `resolve failed: ${e.code}`;
+  }
+  try {
+    dnsInfo.ipv6 = await dns.promises.resolve6(primaryHost);
+  } catch (e) {
+    dnsInfo.ipv6 = `resolve failed: ${e.code}`;
+  }
   let done = 0;
   const total = hosts.length * ports.length;
   const finish = () => {
-    if (++done === total) res.json({ success: true, results });
+    if (++done === total) res.json({ success: true, dns: dnsInfo, results });
   };
   if (total === 0) return res.json({ success: true, results: [] });
   for (const host of hosts) {

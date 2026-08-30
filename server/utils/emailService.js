@@ -13,25 +13,37 @@ const configured = () =>
 const emailEnabled = () => process.env.EMAIL_ENABLED !== "false";
 
 // Gmail via nodemailer — account email + App Password only.
-// `family: 4` forces IPv4: Node ≥17 prefers IPv6 (AAAA) first, and Render's
-// IPv6 route to Gmail blackholes — that was causing the ETIMEDOUTs.
+// `family: 4` forces IPv4 (Node ≥17 prefers AAAA first; Render's IPv6 route
+// to Gmail blackholes). TLS minVersion explicit; cert validation stays ON —
+// disabling it would not help anyway: the failure happens before TLS.
 const port = Number(process.env.SMTP_PORT || 465);
 const transporter = () =>
   nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port,
     secure: port === 465, // 465 = implicit TLS; 587 = STARTTLS
-    family: 4, // force IPv4 — fixes the Render routing problem
+    family: 4, // force IPv4
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    tls: { minVersion: "TLSv1.2" },
     connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 15000,
   });
 
 const sendViaGmail = async (mailOptions) => {
-  const info = await transporter().sendMail(mailOptions);
-  logger.info(`Email sent via Gmail SMTP (${info.messageId})`);
-  return { delivered: true, messageId: info.messageId };
+  try {
+    const info = await transporter().sendMail(mailOptions);
+    logger.info(`Email sent via Gmail SMTP (${info.messageId})`);
+    return { delivered: true, messageId: info.messageId };
+  } catch (e) {
+    // Print the exact failing layer in the Render logs dashboard:
+    // ENOTFOUND = DNS failure · ECONNREFUSED = reachable but closed ·
+    // ETIMEDOUT = network-level block (Google drops datacenter SMTP).
+    logger.error(
+      `--- DETAILED EMAIL ERROR --- Code: ${e.code} | Command: ${e.command} | Message: ${e.message}`,
+    );
+    throw e;
+  }
 };
 
 // Diagnostic helper: verify connection + AUTH against Gmail.
